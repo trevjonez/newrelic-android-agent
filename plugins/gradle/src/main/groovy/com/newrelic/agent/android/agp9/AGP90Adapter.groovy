@@ -51,27 +51,11 @@ class AGP90Adapter extends AGP9BaseAdapter {
         // Call parent implementation from VariantAdapter via AGP9BaseAdapter
         def configProvider = super.wiredWithConfigProvider(variantName)
 
-        // AGP 9.0+ specific: Add generated source directory
-        withVariant(variantName).with { variant ->
-            try {
-                variant.sources.java.addGeneratedSourceDirectory(configProvider, { it.getSourceOutputDir() })
-            } catch (Exception ignored) {
-                logger.debug("${GradleVersion.current()} does not provide addGeneratedSourceDirectory() on the Java sources instance.")
-            }
-        }
-
-        buildHelper.project.afterEvaluate {
-            def wiredTaskNames = Set.of(
-                    "generate${variantName.capitalize()}BuildConfig",
-                    "javaPreCompile${variantName.capitalize()}",
-            )
-
-            buildHelper.wireTaskProviderToDependencyNames(wiredTaskNames) { taskProvider ->
-                taskProvider.configure { dependencyTask ->
-                    dependencyTask.finalizedBy(configProvider)
-                }
-            }
-        }
+        // AGP 9.0+ specific: Inject the generated config class JAR into the class pipeline
+        withVariant(variantName).artifacts
+                .forScope(ScopedArtifacts.Scope.PROJECT)
+                .use(configProvider)
+                .toAppend(ScopedArtifact.CLASSES.INSTANCE, { it.getOutputJar() })
 
         return configProvider
     }

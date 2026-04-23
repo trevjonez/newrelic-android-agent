@@ -72,14 +72,9 @@ class PluginJDK11SmokeSpec extends PluginSpec {
         expect:
         testVariants.each { var ->
             buildResult.task(":${NewRelicConfigTask.NAME}${var.capitalize()}").outcome == SUCCESS
-            def configTmpl = new File(buildDir,
-                    "/generated/java/newrelicConfig${var.capitalize()}/com/newrelic/agent/android/NewRelicConfig.java")
-            configTmpl.exists() && configTmpl.canRead()
-            configTmpl.text.find(~/BUILD_ID = \"(.*)\".*/)
-            configTmpl.text.contains("Boolean OBFUSCATED = true;")
-
-            def configClass = new File(buildDir, "/intermediates/javac/${var}/classes/com/newrelic/agent/android/NewRelicConfig.class")
-            configClass.exists() && configClass.canRead()
+            def configJar = new File(buildDir,
+                    "/generated/newrelicConfig/newrelicConfig${var.capitalize()}.jar")
+            configJar.exists() && configJar.canRead()
         }
     }
 

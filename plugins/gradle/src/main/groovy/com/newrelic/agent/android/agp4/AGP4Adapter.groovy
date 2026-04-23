@@ -89,48 +89,7 @@ class AGP4Adapter extends VariantAdapter {
 
     @Override
     TaskProvider getConfigProvider(String variantName, Action action = null) {
-        def variant = withVariant(variantName)
-        def configTaskProvider = registerOrNamed("${NewRelicConfigTask.NAME}${variantName.capitalize()}", NewRelicConfigTask.class, action)
-
-        try {
-            def buildConfigProvider = variant.getGenerateBuildConfigProvider()
-            if (buildConfigProvider?.isPresent()) {
-                def genSrcFolder = buildHelper.project.layout.buildDirectory.dir("generated/source/newrelicConfig/${variant.name}")
-
-                try {
-                    variant.registerJavaGeneratingTask(configTaskProvider, genSrcFolder.get().asFile)
-                } catch (Exception e) {
-                    logger.error("getConfigProvider: $e")
-                }
-
-                try {
-                    variant.addJavaSourceFoldersToModel(genSrcFolder.get().asFile)
-                } catch (Exception e) {
-                    logger.warn("getConfigProvider: $e")
-                }
-
-                // must manually update the Kotlin compile tasks source sets (per variant)
-                try {
-                    buildHelper.project.tasks.named("compile${variantName.capitalize()}Kotlin") { kotlinCompileTask ->
-                        kotlinCompileTask.dependsOn(configTaskProvider)
-                        kotlinCompileTask.source(objectFactory.sourceDirectorySet(configTaskProvider.name, configTaskProvider.name)
-                                .srcDir(genSrcFolder))
-                    }
-                } catch (Exception ignored) {
-                    // Kotlin source not present or task has started
-                }
-
-                return configTaskProvider
-
-            } else {
-                logger.error("getConfigProvider: buildConfig NOT finalized: buildConfig task was not found")
-            }
-
-        } catch (Exception e) {
-            logger.error("getConfigProvider: $e")
-        }
-
-        return null
+        return registerOrNamed("${NewRelicConfigTask.NAME}${variantName.capitalize()}", NewRelicConfigTask.class, action)
     }
 
     @Override
@@ -185,16 +144,18 @@ class AGP4Adapter extends VariantAdapter {
     def wiredWithConfigProvider(String variantName) {
         def configProvider = super.wiredWithConfigProvider(variantName)
 
+        // Inject the generated config class JAR into the class pipeline after compilation
         withVariant(variantName).with { variant ->
             try {
-                variant.getGenerateBuildConfigProvider().configure {
-                    it.finalizedBy(configProvider)
-                }
-            } catch (Exception ignored) {
-                ignored
+                def configJarFiles = buildHelper.project.files(configProvider.flatMap { it.outputJar })
+                configJarFiles.builtBy(configProvider)
+                variant.registerPostJavacGeneratedBytecode(configJarFiles)
+            } catch (Exception e) {
+                logger.warn("Could not wire config JAR via registerPostJavacGeneratedBytecode: ${e.message}")
             }
         }
 
+        return configProvider
     }
 
     @Override

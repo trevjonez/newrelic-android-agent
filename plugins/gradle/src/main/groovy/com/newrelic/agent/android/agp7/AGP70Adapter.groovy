@@ -150,25 +150,15 @@ class AGP70Adapter extends VariantAdapter {
     def wiredWithConfigProvider(String variantName) {
         def configProvider = super.wiredWithConfigProvider(variantName)
 
+        // Inject the generated config class JAR into the class pipeline after compilation
         withVariant(variantName).with { variant ->
             try {
-                variant.sources.java.addGeneratedSourceDirectory(configProvider, { it.getSourceOutputDir() })
-            } catch (Exception ignored) {
-                //  FIXME
-                logger.debug("${GradleVersion.current()} does not provide addGeneratedSourceDirectory() on the Java sources instance.")
-            }
-        }
-
-        buildHelper.project.afterEvaluate {
-            def wiredTaskNames = Set.of(
-                    "generate${variantName.capitalize()}BuildConfig",
-                    "javaPreCompile${variantName.capitalize()}",
-            )
-
-            buildHelper.wireTaskProviderToDependencyNames(wiredTaskNames) { taskProvider ->
-                taskProvider.configure { dependencyTask ->
-                    dependencyTask.finalizedBy(configProvider)
-                }
+                variant.artifacts
+                        .use(configProvider)
+                        .wiredWith({ it.getOutputJar() })
+                        .toAppendTo(MultipleArtifact.ALL_CLASSES_JARS.INSTANCE)
+            } catch (Exception e) {
+                logger.warn("Could not wire config JAR via MultipleArtifact: ${e.message}")
             }
         }
 

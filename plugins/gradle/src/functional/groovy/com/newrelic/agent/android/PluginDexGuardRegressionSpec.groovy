@@ -71,15 +71,10 @@ class PluginDexGuardRegressionSpec extends PluginSpec {
             buildResult.task(":${DexGuardHelper.DEXGUARD_APK_TASK}${var.capitalize()}").outcome == SUCCESS
             buildResult.task(":${NewRelicConfigTask.NAME}${var.capitalize()}").outcome == SUCCESS
 
-            def configTmpl = new File(buildDir,
-                    "generated/java/newrelicConfig${var.capitalize()}/com/newrelic/agent/android/NewRelicConfig.java")
+            def configJar = new File(buildDir,
+                    "generated/newrelicConfig/newrelicConfig${var.capitalize()}.jar")
 
-            configTmpl.exists() && configTmpl.canRead()
-            configTmpl.text.find(~/BUILD_ID = \"(.*)\".*/)
-            configTmpl.text.contains("MINIFIED = true;")
-
-            def configClass = new File(buildDir, "intermediates/javac/${var}/classes/com/newrelic/agent/android/NewRelicConfig.class")
-            configClass.exists() && configClass.canRead()
+            configJar.exists() && configJar.canRead()
         }
 
         mapUploadVariants.each { var ->

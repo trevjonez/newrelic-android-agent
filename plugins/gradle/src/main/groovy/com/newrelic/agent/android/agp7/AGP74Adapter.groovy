@@ -69,7 +69,12 @@ class AGP74Adapter extends AGP70Adapter {
     @Override
     def wiredWithConfigProvider(String variantName) {
         def configProvider = super.wiredWithConfigProvider(variantName)
-        withVariant(variantName).sources.java.addGeneratedSourceDirectory(configProvider, { it.getSourceOutputDir() })
+
+        // Inject the generated config class JAR into the class pipeline after compilation
+        withVariant(variantName).artifacts
+                .forScope(ScopedArtifacts.Scope.PROJECT)
+                .use(configProvider)
+                .toAppend(ScopedArtifact.CLASSES.INSTANCE, { it.getOutputJar() })
 
         return configProvider
     }
